@@ -1,0 +1,73 @@
+
+# Set environments (default production)
+CHIMP_ENV = ENV.key?("CHIMP_ENV") ? ENV["CHIMP_ENV"] : "development"
+ENV["RACK_ENV"] = CHIMP_ENV
+ENV["RAILS_ENV"] = CHIMP_ENV
+
+# General config
+CHIMP_CONFIG = <<-EOF
+general:
+  external_hostname: "#{ENV["CHIMP_HOSTNAME"]}"
+  date_format: "%d.%m.%Y - %H:%M:%S"
+  allow_deleting: false
+
+# Settings for stream subscription emails.
+subscriptions:
+  from: graylog2@#{ENV["CHIMP_HOSTNAME"]}
+  subject: "[graylog2] Subscription"
+
+# Settings for stream alarm emails.
+streamalarms:
+  from: graylog2@#{ENV["CHIMP_HOSTNAME"]}
+  subject: "[graylog2] Stream alarm!"
+EOF
+
+# A mongodb config template
+CHIMP_MONGO_CONFIG = <<-EOF
+production:
+  host: localhost
+  database: graylog2
+EOF
+
+# Find project CHIMP_ROOT
+CHIMP_ROOT = File.realdirpath(File.dirname(__FILE__))
+
+def log(msg)
+  p msg
+  File.open(File.join(CHIMP_ROOT, "log/chimp.log"), "a") { |f| f.write("#{msg}\n") }
+end
+
+Dir.chdir CHIMP_ROOT do
+
+  # Ensure log folder exists
+  Dir.mkdir("log") unless File.exists?("log")
+
+  log "Monkeying around in #{CHIMP_ROOT}"
+
+  log "Installing bundle"
+  excluded = {
+    "production" => "development test",
+    "development" => "test"
+  }
+  abort unless system "bundle", "install", "--without=#{excluded[CHIMP_ENV]}"
+
+  if File.exists? "config/general.yml"
+    log "Generally configured - skipping"
+  else
+    log "Configuring general"
+    require "erb"
+    template = ERB.new CHIMP_CONFIG
+    genconf = template.result(binding)
+    File.open("config/general.yml", "w") { |f| f.write genconf }
+  end
+
+  if File.exists? "config/mongoid.yml"
+    log "Mongo configured - skipping"
+  else
+    log "Configuring mongodb"
+    File.open("config/mongoid.yml", "w") { |f| f.write CHIMP_MONGO_CONFIG }
+  end
+  
+end
+
+log "Chimp run complete"
