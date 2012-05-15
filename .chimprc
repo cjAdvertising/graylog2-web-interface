@@ -29,6 +29,17 @@ production:
   database: graylog2
 EOF
 
+CHIMP_INDEXER_CONFIG = <<-EOF
+production:
+  url: http://localhost:9200/
+  index_name: graylog2
+EOF
+
+CHIMP_MAIL_CONFIG = <<-EOF
+production:
+  via: sendmail
+EOF
+
 # Find project CHIMP_ROOT
 CHIMP_ROOT = File.realdirpath(File.dirname(__FILE__))
 
@@ -59,6 +70,20 @@ Dir.chdir CHIMP_ROOT do
     template = ERB.new CHIMP_CONFIG
     genconf = template.result(binding)
     File.open("config/general.yml", "w") { |f| f.write genconf }
+  end
+
+  if File.exists? "config/indexer.yml"
+    log "Indexer configured - skipping"
+  else
+    log "Configuring indexer"
+    File.open("config/indexer.yml", "w") { |f| f.write CHIMP_INDEXER_CONFIG }
+  end
+
+  if File.exists? "config/email.yml"
+    log "Email configured - skipping"
+  else
+    log "Configuring email"
+    File.open("config/email.yml", "w") { |f| f.write CHIMP_MAIL_CONFIG }
   end
 
   if File.exists? "config/mongoid.yml"
